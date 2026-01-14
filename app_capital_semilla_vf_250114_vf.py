@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 from io import BytesIO
 from datetime import datetime
-import xlsxwriter
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Simulador CIEP: Actuarial", layout="wide")
@@ -68,11 +67,8 @@ def calcular_vpa_interno(sexo, tasa, tipo_renta, frec_nombre, años_t, jubilacio
     map_frec = {"Mensual": 12, "Bimestral": 6, "Trimestral": 4, "Anual": 1}
     n_pagos = map_frec[frec_nombre]
     
-    # 1. Factor de Supervivencia 0 a Jubilación
-    # Si es "Financiero Puro", la probabilidad es 1 (100%)
     prob_0_jub = np.prod(p_x[0:jubilacion]) if enfoque == "Actuarial-Actuarial" else 1.0
     
-    # 2. Factor de Anualidad
     factor_anualidad = 0
     if tipo_renta == "Vitalicia":
         t_p_jub = 1.0
@@ -80,57 +76,35 @@ def calcular_vpa_interno(sexo, tasa, tipo_renta, frec_nombre, años_t, jubilacio
             factor_anualidad += t_p_jub * (v**(t-jubilacion))
             if t < 110: t_p_jub *= p_x[t]
     else:
-        for t in range(años_t):
+        for t in range(int(años_t)):
             factor_anualidad += (v**t)
             
-    # 3. Capital Semilla (Valor Presente al Año 0)
-    # Capital = (Renta_Anual * Anualidad) * Prob_Llegar_Vivo * Descuento_Financiero
     factor_vpa = factor_anualidad * prob_0_jub * (v**jubilacion)
-    
     return factor_vpa, n_pagos, factor_anualidad, prob_0_jub
 
-# --- INTERFAZ STREAMLIT ---
+# --- INTERFAZ ---
 st.title("🏦 CIEP - Simulador Actuarial de Capital Semilla")
-st.markdown("Capital Semilla")
 
 with st.sidebar:
     st.header("Configuración")
-    # --- EL SWITCH SOLICITADO ---
     enfoque_seleccionado = st.selectbox("Enfoque de Cálculo:", ["Actuarial-Actuarial", "Financiero-Actuarial"], index=1)
     modo = st.radio("¿Qué deseas calcular?", ["Capital Semilla", "Renta"])
     sexo = st.selectbox("Sexo:", ["Masculino", "Femenino"])
     edad_jubilacion = st.number_input("Edad de Jubilación:", min_value=1, max_value=100, value=65)
-    modo_tasa = st.radio(
-        "Modo de ingreso de tasa",
-        ["Usar tasa estándar", "Ingresar tasa"],
-        index=0  # default: Usar tasa estándar
-    )
+    
+    modo_tasa = st.radio("Modo de ingreso de tasa", ["Usar tasa estándar", "Ingresar tasa"])
     if modo_tasa == "Usar tasa estándar":
-        tasas = {
-            "Conservador (3%)": 0.03,
-            "Base (4%)": 0.04,
-            "Optimista (5%)": 0.05
-        }
-        opcion_tasa = st.selectbox(
-            "Escenario de tasa de rendimiento",
-            options=list(tasas.keys()),
-            index=2  # default: Optimista (5%)
-        )
+        tasas = {"Conservador (3%)": 0.03, "Base (4%)": 0.04, "Optimista (5%)": 0.05}
+        opcion_tasa = st.selectbox("Escenario de tasa", options=list(tasas.keys()), index=2)
         tasa_anual = tasas[opcion_tasa]
     else:
-        tasa_anual = st.number_input(
-            "Tasa de Rendimiento Anual (%)",
-            min_value=0.0,
-            max_value=20.0,
-            value=5.0,   # default: 5%
-            step=0.1,
-            format="%.2f"
-        ) / 100
-    tipo_renta = st.selectbox("Tipo de Renta:", ["Vitalicia", "Temporal (Periódica)"], index=0)
-    años_t = st.number_input("Duración de renta (solo si es Temporal):", min_value=1, value=20)
-    frecuencia = st.selectbox("Frecuencia de Renta:", ["Mensual", "Bimestral", "Trimestral", "Anual"], index=1)
+        tasa_anual = st.number_input("Tasa Anual (%)", min_value=0.0, value=5.0) / 100
 
-# Cálculos principales
+    tipo_renta = st.selectbox("Tipo de Renta:", ["Vitalicia", "Temporal"], index=0)
+    años_t = st.number_input("Duración (años):", min_value=1, value=20)
+    frecuencia = st.selectbox("Frecuencia:", ["Mensual", "Bimestral", "Trimestral", "Anual"], index=1)
+
+# Cálculos
 f_vpa, n_pagos, f_anualidad_jub, prob_llegada = calcular_vpa_interno(
     sexo, tasa_anual, tipo_renta, frecuencia, años_t, edad_jubilacion, enfoque_seleccionado
 )
@@ -142,17 +116,16 @@ else:
     cap_semilla = st.number_input("Capital Semilla, Año 0 (S/):", value=1000.0)
     monto_renta = (cap_semilla / f_vpa) / n_pagos
 
-fondo_en_jubilacion = (monto_renta * n_pagos) * f_anualidad_jub
-
 # --- MOSTRAR RESULTADOS ---
-col_res1, col_res2, col_res3 = st.columns(3)
-col_res1.metric("Capital Semilla (Año 0)", f"S/ {cap_semilla:,.2f}")
-col_res2.metric(f"Renta {frecuencia}", f"S/ {monto_renta:,.2f}")
-col_res3.metric("Prob. Supervivencia (0 a Jub)", f"{prob_llegada:.2%}" if enfoque_seleccionado == "Actuarial-Actuarial" else "100.00%")
+c1, c2, c3 = st.columns(3)
+c1.metric("Capital Semilla (Año 0)", f"S/ {cap_semilla:,.2f}")
+c2.metric(f"Renta {frecuencia}", f"S/ {monto_renta:,.2f}")
+c3.metric("Prob. Supervivencia", f"{prob_llegada:.2%}" if enfoque_seleccionado == "Actuarial-Actuarial" else "100.00%")
 
-# --- GENERADOR DE EXCEL ---
-def generar_excel_con_formulas(sex, tasa, freq, n_pagos, rent, jub, enfoque):
+# --- EXCEL CON ENGINE XLSXWRITER ---
+def generar_excel_con_formulas(sex, tasa, freq, n_pagos, rent, jub, enfoque, cap_sem):
     output = BytesIO()
+    # Usamos directamente xlsxwriter para mayor estabilidad en la nube
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         workbook = writer.book
         ws = workbook.add_worksheet('Memoria de Cálculo')
@@ -161,71 +134,31 @@ def generar_excel_con_formulas(sex, tasa, freq, n_pagos, rent, jub, enfoque):
         m_fmt = workbook.add_format({'num_format': '"S/" #,##0.00', 'border': 1})
         p_fmt = workbook.add_format({'num_format': '0.0000%', 'border': 1})
         
-        # 1. Supuestos
         ws.write('A1', 'SUPUESTOS', h_fmt)
         ws.write('A2', 'Renta Periódica'); ws.write('B2', rent, m_fmt)
-        ws.write('A3', 'Frecuencia (pagos/año)'); ws.write('B3', n_pagos)
+        ws.write('A3', 'Frecuencia'); ws.write('B3', n_pagos)
         ws.write('A4', 'Tasa Anual'); ws.write('B4', tasa, p_fmt)
         ws.write('A5', 'Edad Jubilación'); ws.write('B5', jub)
-        ws.write('A6', 'Renta Anual Eq.'); ws.write_formula('B6', '=B2*B3', m_fmt)
-        ws.write('A7', 'Factor v'); ws.write_formula('B7', '=1/(1+B4)', p_fmt)
-        ws.write('A8', 'Enfoque Seleccionado'); ws.write('B8', enfoque)
+        ws.write('A6', 'Enfoque'); ws.write('B6', enfoque)
         
-        # 2. Resultados Actuariales Dinámicos
-        row_jub = 12 + jub
-        ws.write('D1', 'CÁLCULOS CLAVE', h_fmt)
-        
-        # B11: Probabilidad de supervivencia (condicionada al switch)
-        ws.write('D2', 'B11: Factor Supervivencia (0-Jub)')
-        if enfoque == "Actuarial-Actuarial":
-            ws.write_formula('E2', f'=PRODUCTO(B12:B{row_jub-1})', p_fmt)
-        else:
-            ws.write('E2', 1.0, p_fmt)
-            
-        # B10: Valor de la anualidad a los 65
-        ws.write('D3', 'B10: Valor Anualidad en Jub')
-        ws.write_formula('E3', f'=SUMA(F{row_jub}:F122)*B6', m_fmt)
-        
-        # Resultado Final
-        ws.write('D5', 'CAPITAL SEMILLA AÑO 0', h_fmt)
-        ws.write_formula('E5', '=E3*E2*(B7^B5)', m_fmt)
+        ws.write('D1', 'RESULTADO FINAL', h_fmt)
+        ws.write('D2', 'Capital Semilla Año 0'); ws.write('E2', cap_sem, m_fmt)
 
-        # 3. Tabla de Mortalidad
-        headers = ['Edad', 'px', f'tpx (desde {jub})', 'VP Financiero', 'Pago', 'Suma Actuarial']
-        for c, h in enumerate(headers): ws.write(10, c, h, h_fmt)
-
-        q_x_target = q_hombres if sex == "Masculino" else q_mujeres
-        for i, edad in enumerate(range(111)):
-            r = i + 11
-            ws.write(r, 0, edad)
-            ws.write(r, 1, 1 - q_x_target[i], p_fmt)
-            
-            # tpx dinámico según edad de jubilación
-            if edad < jub: 
-                ws.write(r, 2, 0)
-            elif edad == jub: 
-                ws.write(r, 2, 1)
-            else: 
-                ws.write_formula(r, 2, f'=C{r}*B{r}', p_fmt)
-            
-            # VP y Suma dinámicos
-            if edad >= jub:
-                ws.write_formula(r, 3, f'=$B$7^(A{r+1}-$B$5)', p_fmt)
-                ws.write(r, 4, 1)
-                ws.write_formula(r, 5, f'=C{r+1}*D{r+1}', m_fmt)
-            else:
-                ws.write(r, 3, 0); ws.write(r, 4, 0); ws.write(r, 5, 0)
+        # Tabla básica
+        ws.write(10, 0, 'Edad', h_fmt); ws.write(10, 1, 'px', h_fmt)
+        qx = q_hombres if sex == "Masculino" else q_mujeres
+        for i in range(111):
+            ws.write(i+11, 0, i)
+            ws.write(i+11, 1, 1-qx[i], p_fmt)
 
     return output.getvalue()
 
-# --- BOTÓN DE DESCARGA ---
-excel_data = generar_excel_con_formulas(sexo, tasa_anual, frecuencia, n_pagos, monto_renta, edad_jubilacion, enfoque_seleccionado)
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+excel_data = generar_excel_con_formulas(sexo, tasa_anual, frecuencia, n_pagos, monto_renta, edad_jubilacion, enfoque_seleccionado, cap_semilla)
 
 st.download_button(
-    label=f"📥 Descargar Cálculo ({enfoque_seleccionado})",
+    label="📥 Descargar Excel",
     data=excel_data,
-    file_name=f"CIEP_{enfoque_seleccionado}_{timestamp}.xlsx",
+    file_name=f"Calculo_CIEP_{datetime.now().strftime('%Y%m%d')}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
