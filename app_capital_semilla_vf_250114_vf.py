@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from io import BytesIO
 from datetime import datetime
+import xlsxwriter
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Simulador CIEP: Actuarial", layout="wide")
