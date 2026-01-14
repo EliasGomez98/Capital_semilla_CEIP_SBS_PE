@@ -35,8 +35,8 @@ def calcular_vpa_interno(sexo, tasa, tipo_renta, frec_nombre, años_t, jubilacio
     return factor_vpa, n_pagos, factor_anualidad, prob_0_jub
 
 # --- INTERFAZ ---
-st.title("🏦 CEIP - Simulador Actuarial de Capital Semilla")
-st.markdown("Este simulador permite estimar el Capital Semilla en el marco de los trabajos del Comité para el Estudio Integral del Sistema Previsional en el Perú (CEIP), conforme a lo dispuesto en la Resolución SBS N.° 04043-2025, de fecha 11 de noviembre de 2025.")
+st.title("🏦 CEIP - Simulador Actuarial de Capital Semilla") if modo == "Capital Semilla" else st.title("🏦 CEIP - Simulador Actuarial de Renta")
+st.markdown("Este simulador permite estimar el Capital Semilla en el marco de los trabajos del Comité para el Estudio Integral del Sistema Previsional en el Perú (CEIP), conforme a lo dispuesto en la Resolución SBS N.° 04043-2025, de fecha 11 de noviembre de 2025.") if modo == "Capital Semilla" else st.title("Este simulador permite estimar una pensión en el marco de los trabajos del Comité para el Estudio Integral del Sistema Previsional en el Perú (CEIP), conforme a lo dispuesto en la Resolución SBS N.° 04043-2025, de fecha 11 de noviembre de 2025.")
 
 with st.sidebar:
     st.header("Configuración")
