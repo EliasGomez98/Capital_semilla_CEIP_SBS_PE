@@ -12,14 +12,14 @@ q_hombres = np.array([5.03940441e-03, 3.46560981e-04, 3.24551757e-04, 2.94943411
 
 q_mujeres = np.array([3.28401115e-03, 2.48698449e-04, 2.18468949e-04, 1.84235210e-04, 1.51723433e-04, 1.23259870e-04, 1.00373723e-04, 8.34064961e-05, 7.16928800e-05, 6.45448135e-05, 6.09952836e-05, 6.03111637e-05, 6.16858602e-05, 6.51867706e-05, 7.09168073e-05, 8.03599609e-05, 8.82498788e-05, 9.65069278e-05, 1.05067123e-04, 1.13606999e-04, 1.22241114e-04, 1.31035453e-04, 1.40046533e-04, 1.49544218e-04, 1.59748899e-04, 1.70650764e-04, 1.83620191e-04, 1.92341051e-04, 1.98159106e-04, 2.02962855e-04, 2.08733001e-04, 2.17176368e-04, 2.29439630e-04, 2.45616641e-04, 2.64994028e-04, 2.86401967e-04, 3.08348193e-04, 3.29293979e-04, 3.48157963e-04, 3.64837167e-04, 3.80275690e-04, 3.95926415e-04, 4.13142968e-04, 4.32790785e-04, 4.55090935e-04, 4.79792095e-04, 5.06584789e-04, 5.35606386e-04, 5.67662205e-04, 6.04081934e-04, 6.46177082e-04, 6.94597786e-04, 7.48859403e-04, 8.07337942e-04, 8.67709899e-04, 9.27869957e-04, 9.87067511e-04, 1.04688784e-03, 1.11160321e-03, 1.18783094e-03, 1.28347169e-03, 1.40623729e-03, 1.56221520e-03, 1.75481125e-03, 1.98422695e-03, 2.24758137e-03, 2.53992507e-03, 2.85523585e-03, 3.18773085e-03, 3.53413659e-03, 3.89546375e-03, 4.27374321e-03, 4.66973902e-03, 5.08951425e-03, 5.54614663e-03, 6.04909444e-03, 6.60481705e-03, 7.22335774e-03, 7.91634793e-03, 8.70413264e-03, 9.61372709e-03, 1.06693579e-02, 1.18965545e-02, 1.33086886e-02, 1.49105176e-02, 1.67091020e-02, 1.87024831e-02, 2.08995105e-02, 2.33173188e-02, 2.59526379e-02, 2.88260585e-02, 3.44007851e-02, 4.09302574e-02, 4.85329405e-02, 5.73293010e-02, 6.76123547e-02, 7.96173972e-02, 9.35751692e-02, 1.09788895e-01, 1.28609460e-01, 1.50443082e-01, 1.75760253e-01, 2.05106172e-01, 2.39112922e-01, 2.78513692e-01, 3.24159406e-01, 3.45335222e-01, 3.67228247e-01, 3.89838481e-01, 4.13165924e-01, 1.00000000e+00])
 
-def calcular_vpa_interno(sexo, tasa, tipo_renta, frec_nombre, años_t, jubilacion, enfoque):
+def calcular_vpa_interno(sexo, tasa, tipo_renta, frec_nombre, años_t, jubilacion):
     v = 1 / (1 + tasa)
     q_x = q_hombres if sexo == "Masculino" else q_mujeres
     p_x = 1 - q_x
     map_frec = {"Mensual": 12, "Bimestral": 6, "Trimestral": 4, "Anual": 1}
     n_pagos = map_frec[frec_nombre]
     
-    prob_0_jub = np.prod(p_x[0:jubilacion]) if enfoque == "Actuarial-Actuarial" else 1.0
+    prob_0_jub = 1.0
     
     factor_anualidad = 0
     if tipo_renta == "Vitalicia":
@@ -40,7 +40,6 @@ st.markdown("Este simulador permite estimar el Capital Semilla en el marco de lo
 
 with st.sidebar:
     st.header("Configuración")
-    enfoque_seleccionado = st.selectbox("Enfoque de Cálculo:", ["Actuarial-Actuarial", "Financiero-Actuarial"], index=1)
     modo = st.radio("¿Qué deseas calcular?", ["Capital Semilla", "Renta"])
     sexo = st.selectbox("Sexo:", ["Masculino", "Femenino"])
     edad_jubilacion = st.number_input("Edad de Jubilación:", min_value=1, max_value=100, value=65)
@@ -59,7 +58,7 @@ with st.sidebar:
 
 # Cálculos
 f_vpa, n_pagos, f_anualidad_jub, prob_llegada = calcular_vpa_interno(
-    sexo, tasa_anual, tipo_renta, frecuencia, años_t, edad_jubilacion, enfoque_seleccionado
+    sexo, tasa_anual, tipo_renta, frecuencia, años_t, edad_jubilacion
 )
 
 if modo == "Capital Semilla":
@@ -73,10 +72,10 @@ else:
 c1, c2, c3 = st.columns(3)
 c1.metric("Capital Semilla (Año 0)", f"S/ {cap_semilla:,.2f}")
 c2.metric(f"Renta {frecuencia}", f"S/ {monto_renta:,.2f}")
-c3.metric("Prob. Supervivencia", f"{prob_llegada:.2%}" if enfoque_seleccionado == "Actuarial-Actuarial" else "100.00%")
+c3.metric("Prob. Supervivencia", f"100.00%")
 
 # --- EXCEL SEGURO ---
-def generar_excel_seguro(sex, tasa, freq, n_pagos, rent, jub, enfoque, cap_sem):
+def generar_excel_seguro(sex, tasa, freq, n_pagos, rent, jub, cap_sem):
     output = BytesIO()
     # No usamos Pandas para el writer para evitar el error de importación interna
     import xlsxwriter
@@ -87,7 +86,6 @@ def generar_excel_seguro(sex, tasa, freq, n_pagos, rent, jub, enfoque, cap_sem):
     m_fmt = workbook.add_format({'num_format': '"S/" #,##0.00'})
     
     ws.write('A1', 'SUPUESTOS', h_fmt)
-    ws.write('A2', 'Enfoque'); ws.write('B2', enfoque)
     ws.write('A3', 'Capital Semilla'); ws.write('B3', cap_sem, m_fmt)
     ws.write('A4', 'Renta Calculada'); ws.write('B4', rent, m_fmt)
     
@@ -96,7 +94,7 @@ def generar_excel_seguro(sex, tasa, freq, n_pagos, rent, jub, enfoque, cap_sem):
 
 # Intentar generar el botón solo si xlsxwriter está disponible
 try:
-    data_xls = generar_excel_seguro(sexo, tasa_anual, frecuencia, n_pagos, monto_renta, edad_jubilacion, enfoque_seleccionado, cap_semilla)
+    data_xls = generar_excel_seguro(sexo, tasa_anual, frecuencia, n_pagos, monto_renta, edad_jubilacion, cap_semilla)
     st.download_button(
         label="📥 Descargar Reporte Excel",
         data=data_xls,
