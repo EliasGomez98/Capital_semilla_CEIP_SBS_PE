@@ -1,2 +1,2 @@
-# Capital_semilla_CEIP_SBS_PE
-Calculadora Actuarial de Capital Semilla para CIEP-SBS-Perú
+# VAFP
+Calculadora Actuarial de flujos de pensiones v001 - 260114
